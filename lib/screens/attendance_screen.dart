@@ -82,14 +82,20 @@ class AttendanceScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text(
-                            'Daily Attendance',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14.0,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Daily Attendance',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14.0,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              _buildSyncStatusIndicator(context, provider),
+                            ],
                           ),
                           const SizedBox(height: 4.0),
                           Row(
@@ -105,18 +111,24 @@ class AttendanceScreen extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              ElevatedButton.icon(
-                                onPressed: () => _selectDate(context, provider),
-                                icon: const Icon(Icons.calendar_month, size: 16, color: Color(0xFF064E3B)),
-                                label: const Text('Date', style: TextStyle(color: Color(0xFF064E3B), fontWeight: FontWeight.bold)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20.0),
+                              Row(
+                                children: [
+                                  _buildSyncButton(context, provider),
+                                  const SizedBox(width: 8.0),
+                                  ElevatedButton.icon(
+                                    onPressed: () => _selectDate(context, provider),
+                                    icon: const Icon(Icons.calendar_month, size: 16, color: Color(0xFF064E3B)),
+                                    label: const Text('Date', style: TextStyle(color: Color(0xFF064E3B), fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(20.0),
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                    ),
                                   ),
-                                  visualDensity: VisualDensity.compact,
-                                ),
+                                ],
                               ),
                             ],
                           ),
@@ -469,6 +481,111 @@ class AttendanceScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSyncStatusIndicator(BuildContext context, MadrasaProvider provider) {
+    if (provider.isSyncing) {
+      return const Text(
+        'Syncing...',
+        style: TextStyle(color: Colors.white70, fontSize: 12.0, fontWeight: FontWeight.w500),
+      );
+    }
+    
+    if (provider.syncErrorMessage != null) {
+      return GestureDetector(
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Sync Error: ${provider.syncErrorMessage}'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        },
+        child: const Row(
+          children: [
+            Icon(Icons.warning_amber, size: 14, color: Colors.orangeAccent),
+            SizedBox(width: 4),
+            Text(
+              'Sync Error',
+              style: TextStyle(color: Colors.orangeAccent, fontSize: 12.0, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (provider.lastSyncTime == null) {
+      return const Text(
+        'Offline Mode (Not Synced)',
+        style: TextStyle(color: Colors.white70, fontSize: 12.0, fontStyle: FontStyle.italic),
+      );
+    }
+
+    final timeStr = DateFormat('HH:mm').format(provider.lastSyncTime!);
+    return Text(
+      'Synced at $timeStr',
+      style: TextStyle(color: Color(0xFFE6F4EA), fontSize: 12.0, fontWeight: FontWeight.w600),
+    );
+  }
+
+  Widget _buildSyncButton(BuildContext context, MadrasaProvider provider) {
+    if (provider.isSyncing) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        decoration: BoxDecoration(
+          color: Colors.white24,
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 2,
+              ),
+            ),
+            SizedBox(width: 6),
+            Text('Syncing', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13.0)),
+          ],
+        ),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: () async {
+        await provider.synchronizeWithBackend();
+        if (context.mounted) {
+          if (provider.syncErrorMessage != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Sync failed: ${provider.syncErrorMessage}'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Madrasa successfully synchronized with backend!'),
+                backgroundColor: Colors.teal,
+              ),
+            );
+          }
+        }
+      },
+      icon: const Icon(Icons.sync, size: 16, color: Color(0xFF064E3B)),
+      label: const Text('Sync', style: TextStyle(color: Color(0xFF064E3B), fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.0),
+        ),
+        visualDensity: VisualDensity.compact,
       ),
     );
   }

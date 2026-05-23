@@ -75,7 +75,11 @@ class DatabaseHelper {
   // Parent CRUD
   Future<int> insertParent(Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.insert('parents', row);
+    return await db.insert(
+      'parents',
+      row,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<Map<String, dynamic>>> queryAllParents() async {
@@ -86,7 +90,11 @@ class DatabaseHelper {
   // Student CRUD
   Future<int> insertStudent(Map<String, dynamic> row) async {
     final db = await instance.database;
-    return await db.insert('students', row);
+    return await db.insert(
+      'students',
+      row,
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<List<Map<String, dynamic>>> queryStudentsForParent(String parentId) async {
@@ -107,6 +115,11 @@ class DatabaseHelper {
       row,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<List<Map<String, dynamic>>> queryAllAttendance() async {
+    final db = await instance.database;
+    return await db.query('attendance');
   }
 
   Future<List<Map<String, dynamic>>> queryAttendanceForDate(String date) async {

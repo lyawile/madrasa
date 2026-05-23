@@ -5,6 +5,7 @@ import '../data/database_helper.dart';
 import '../models/parent.dart';
 import '../models/student.dart';
 import '../models/attendance.dart';
+import '../services/sync_service.dart';
 
 class MadrasaProvider extends ChangeNotifier {
   final DatabaseHelper _dbHelper = DatabaseHelper.instance;
@@ -17,6 +18,9 @@ class MadrasaProvider extends ChangeNotifier {
   DateTime _selectedDate = DateTime.now();
   Map<String, Attendance> _attendanceMap = {}; // Key: student_id
   bool _isLoading = false;
+  bool _isSyncing = false;
+  DateTime? _lastSyncTime;
+  String? _syncErrorMessage;
 
   // Getters
   List<Parent> get parents => _parents;
@@ -25,6 +29,9 @@ class MadrasaProvider extends ChangeNotifier {
   DateTime get selectedDate => _selectedDate;
   Map<String, Attendance> get attendanceMap => _attendanceMap;
   bool get isLoading => _isLoading;
+  bool get isSyncing => _isSyncing;
+  DateTime? get lastSyncTime => _lastSyncTime;
+  String? get syncErrorMessage => _syncErrorMessage;
 
   // Check if the current date is a weekend (Thursday or Friday)
   bool get isWeekend {
@@ -194,5 +201,54 @@ class MadrasaProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  // Offline-First Sync Cycle
+  Future<void> synchronizeWithBackend() async {
+    _isSyncing = true;
+    _syncErrorMessage = null;
+    notifyListeners();
+
+    try {
+      final syncService = SyncService();
+
+      // 1. Sync Parents: Push local parents, get server parents list
+      final serverParents = await syncService.syncParents(_parents);
+      // Merge server parents into local SQFlite
+      for (final parent in serverParents) {
+        await _dbHelper.insertParent(parent.toMap());
+      }
+
+      // 2. Sync Students: Push local students, get server students list
+      final serverStudents = await syncService.syncStudents(_students);
+      // Merge server students into local SQFlite
+      for (final student in serverStudents) {
+        await _dbHelper.insertStudent(student.toMap());
+      }
+
+      // 3. Sync Attendance: Query all local attendance records
+      final localAttendanceMaps = await _dbHelper.queryAllAttendance();
+      final localAttendance = localAttendanceMaps.map((map) => Attendance.fromMap(map)).toList();
+
+      final serverAttendance = await syncService.syncAttendance(localAttendance);
+      // Merge server attendance into local SQFlite
+      for (final record in serverAttendance) {
+        await _dbHelper.insertOrUpdateAttendance(record.toMap());
+      }
+
+      // 4. Re-fetch all parents and students to refresh in-memory state
+      await fetchParentsAndStudents();
+
+      // 5. Re-load attendance for current selected date
+      await loadAttendanceForDate(_selectedDate);
+
+      _lastSyncTime = DateTime.now();
+    } catch (e) {
+      _syncErrorMessage = e.toString();
+      debugPrint('Sync failed: $e');
+    } finally {
+      _isSyncing = false;
+      notifyListeners();
+    }
   }
 }
