@@ -9,7 +9,7 @@ class SyncService {
   // Configurable base URL. 
   // In Flutter, 10.0.2.2 points to host localhost when running in Android Emulator.
   // We check if it is running in web or emulator to automatically configure the best URL!
-  static String baseUrl = kIsWeb ? 'http://localhost:8085/api' : 'http://10.0.2.2:8085/api';
+  static String baseUrl = 'http://192.168.1.163:8085/api';
 
   static void setBaseUrl(String newUrl) {
     baseUrl = newUrl;
